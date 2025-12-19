@@ -9,8 +9,8 @@ const CommentTool = ({ isOpen, onClose, onAdd, position }) => {
   const [fontFamily, setFontFamily] = useState("Arial");
   const [color, setColor] = useState("#000000");
 
-  // ✅ Background color is OPTIONAL
-  const [bgColor, setBgColor] = useState("#ffffff");
+  // Background color OPTIONAL
+  const [bgColor, setBgColor] = useState(null);
 
   const fonts = [
     "Arial",
@@ -39,15 +39,18 @@ const CommentTool = ({ isOpen, onClose, onAdd, position }) => {
     onAdd({
       type: "comment",
       text,
-      fontSize,
+      fontSize: Number(fontSize), // ✅ always number
       fontFamily,
       color,
-      ...(bgColor && { bgColor }), // ✅ only if selected
+      ...(bgColor && { bgColor }),
       position,
     });
 
     // reset
     setText("");
+    setFontSize(14);
+    setFontFamily("Arial");
+    setColor("#000000");
     setBgColor(null);
     onClose();
   };
@@ -63,7 +66,8 @@ const CommentTool = ({ isOpen, onClose, onAdd, position }) => {
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg
+                       focus:ring-2 focus:ring-blue-500 outline-none text-sm"
             rows={4}
             placeholder="Enter your comment..."
           />
@@ -71,6 +75,7 @@ const CommentTool = ({ isOpen, onClose, onAdd, position }) => {
 
         {/* Font & Size */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Font Family */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               <Type className="w-4 h-4 inline mr-1" />
@@ -79,7 +84,8 @@ const CommentTool = ({ isOpen, onClose, onAdd, position }) => {
             <select
               value={fontFamily}
               onChange={(e) => setFontFamily(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg
+                         focus:ring-2 focus:ring-blue-500 outline-none text-sm"
             >
               {fonts.map((font) => (
                 <option key={font} value={font} style={{ fontFamily: font }}>
@@ -89,17 +95,24 @@ const CommentTool = ({ isOpen, onClose, onAdd, position }) => {
             </select>
           </div>
 
+          {/* Font Size */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Font Size
             </label>
             <input
               type="number"
-              value={fontSize}
-              onChange={(e) => setFontSize(Number(e.target.value))}
               min={8}
               max={72}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+              value={fontSize}
+              onChange={(e) => {
+                const value = parseInt(e.target.value, 10);
+                if (!isNaN(value)) {
+                  setFontSize(value);
+                }
+              }}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg
+                         focus:ring-2 focus:ring-blue-500 outline-none text-sm"
             />
           </div>
         </div>
@@ -156,12 +169,12 @@ const CommentTool = ({ isOpen, onClose, onAdd, position }) => {
 
         {/* Preview */}
         <div
-          className="p-4 rounded-lg border-2 border-dashed  text-sm"
+          className="p-4 rounded-lg border-2 border-dashed text-sm"
           style={{
             ...(bgColor && { backgroundColor: bgColor }),
             color,
             fontFamily,
-            fontSize: `${fontSize}px`,
+            fontSize: `${fontSize}px`, //
           }}
         >
           {text || "Preview of your comment..."}
