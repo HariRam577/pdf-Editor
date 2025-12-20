@@ -27,7 +27,7 @@ const PDFViewer = () => {
 
   const [pageWidth, setPageWidth] = useState(0);
   const [pageHeight, setPageHeight] = useState(0);
-  const [containerWidth, setContainerWidth] = useState(null);
+  const [baseWidth, setBaseWidth] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [clickPosition, setClickPosition] = useState(null);
 
@@ -36,7 +36,7 @@ const PDFViewer = () => {
   useEffect(() => {
     const updateWidth = () => {
       if (containerRef.current) {
-        setContainerWidth(containerRef.current.offsetWidth * 0.95);
+        setBaseWidth(containerRef.current.offsetWidth * 0.95);
       }
     };
     updateWidth();
@@ -87,30 +87,40 @@ const PDFViewer = () => {
         <button
           onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
           disabled={currentPage === 1}
+          className="p-2 hover:bg-gray-100 rounded disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <ChevronLeft />
+          <ChevronLeft className="w-5 h-5" />
         </button>
 
-        <span>
+        <span className="text-sm font-medium">
           {currentPage} / {numPages}
         </span>
 
         <button
           onClick={() => setCurrentPage((p) => Math.min(numPages, p + 1))}
           disabled={currentPage === numPages}
+          className="p-2 hover:bg-gray-100 rounded disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <ChevronRight />
+          <ChevronRight className="w-5 h-5" />
         </button>
+
+        <div className="ml-auto text-sm font-medium text-gray-600">
+          Zoom: {Math.round(scale * 100)}%
+        </div>
       </div>
 
       {/* PDF */}
       <div ref={containerRef} className="flex-1 overflow-auto">
         <div className="flex justify-center p-4">
-          {containerWidth && (
+          {baseWidth && (
             <Document
               file={pdfFile}
               onLoadSuccess={handleDocumentLoadSuccess}
-              loading={<Loader className="animate-spin" />}
+              loading={
+                <div className="flex items-center justify-center p-8">
+                  <Loader className="animate-spin w-8 h-8 text-blue-600" />
+                </div>
+              }
             >
               <div
                 className="relative bg-white shadow-lg"
@@ -118,7 +128,7 @@ const PDFViewer = () => {
               >
                 <Page
                   pageNumber={currentPage}
-                  width={containerWidth}
+                  width={baseWidth * scale}
                   renderTextLayer={false}
                   renderAnnotationLayer={false}
                   onLoadSuccess={handlePageLoadSuccess}

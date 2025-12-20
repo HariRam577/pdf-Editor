@@ -15,7 +15,46 @@ export const savePDFWithAnnotations = async (
     const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
     const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
     const timesRoman = await pdfDoc.embedFont(StandardFonts.TimesRoman);
+    const timesRomanBold = await pdfDoc.embedFont(StandardFonts.TimesRomanBold);
+    const timesRomanItalic = await pdfDoc.embedFont(
+      StandardFonts.TimesRomanItalic
+    );
     const courier = await pdfDoc.embedFont(StandardFonts.Courier);
+    const courierBold = await pdfDoc.embedFont(StandardFonts.CourierBold);
+
+    // Font mapping helper
+    const getFontForFamily = (fontFamily) => {
+      const familyLower = (fontFamily || "").toLowerCase();
+
+      if (
+        familyLower.includes("times") ||
+        familyLower.includes("serif") ||
+        familyLower.includes("georgia")
+      ) {
+        return timesRoman;
+      } else if (
+        familyLower.includes("courier") ||
+        familyLower.includes("mono")
+      ) {
+        return courier;
+      } else if (familyLower.includes("bold")) {
+        return helveticaBold;
+      } else if (familyLower.includes("italic")) {
+        return timesRomanItalic;
+      } else if (
+        familyLower.includes("brush") ||
+        familyLower.includes("script")
+      ) {
+        return timesRomanItalic; // Closest match for script fonts
+      } else if (
+        familyLower.includes("lucida") ||
+        familyLower.includes("handwriting")
+      ) {
+        return timesRomanItalic; // Closest match for handwriting fonts
+      }
+
+      return helveticaFont; // default
+    };
 
     // Process each page
     for (let pageNum = 1; pageNum <= numPages; pageNum++) {
@@ -30,44 +69,68 @@ export const savePDFWithAnnotations = async (
       for (const annotation of pageAnnotations) {
         const { type, position } = annotation;
 
-        // Convert coordinates (accounting for PDF coordinate system)
-        const x = position.x / scale;
-        const y = height - position.y / scale;
+        // Convert coordinates (PDF origin is bottom-left)
+        const x = position.x;
+        const y = height - position.y;
 
         if (type === "comment") {
+          // Calculate text dimensions
+          const maxWidth = 200;
+          const lineHeight = annotation.fontSize * 1.4;
+          const padding = 8;
+
+          // Ensure comment stays within page bounds
+          const adjustedX = Math.min(x, width - maxWidth);
+          const adjustedY = Math.max(lineHeight + padding, y);
+
           // Draw comment background
-          const bgColor = hexToRgb(annotation.bgColor);
+          const bgColor = hexToRgb(annotation.bgColor || "#ffffff");
           page.drawRectangle({
-            x,
-            y: y - 30,
-            width: 150,
-            height: 30,
+            x: adjustedX,
+            y: adjustedY - lineHeight - padding,
+            width: maxWidth,
+            height: lineHeight + padding * 2,
             color: rgb(bgColor.r / 255, bgColor.g / 255, bgColor.b / 255),
-            opacity: 0.8,
+            opacity: 0.9,
           });
 
+          // Get the appropriate font based on fontFamily
+          const commentFont = getFontForFamily(annotation.fontFamily);
+
           // Draw comment text
-          const textColor = hexToRgb(annotation.color);
+          const textColor = hexToRgb(annotation.color || "#000000");
           page.drawText(annotation.text, {
-            x: x + 5,
-            y: y - 20,
-            size: annotation.fontSize / scale,
-            font: helveticaFont,
+            x: adjustedX + padding,
+            y: adjustedY - lineHeight,
+            size: annotation.fontSize,
+            font: commentFont,
             color: rgb(textColor.r / 255, textColor.g / 255, textColor.b / 255),
-            maxWidth: 140,
+            maxWidth: maxWidth - padding * 2,
           });
         }
 
         if (type === "signature") {
           const { signatureData } = annotation;
+          const sigWidth = annotation.width || 200;
+          const sigHeight = annotation.height || 80;
+
+          // Ensure signature stays within page bounds
+          const adjustedX = Math.min(x, width - sigWidth);
+          const adjustedY = Math.max(sigHeight, y);
 
           if (signatureData.type === "typed") {
+            // Calculate font size based on height
+            const fontSize = Math.min(sigHeight * 0.5, 32);
+
+            // Get the appropriate font for signature
+            const signatureFont = getFontForFamily(signatureData.font);
+
             // Draw typed signature
             page.drawText(signatureData.text, {
-              x,
-              y: y - 25,
-              size: 24 / scale,
-              font: helveticaBold,
+              x: adjustedX + 10,
+              y: adjustedY - sigHeight / 2,
+              size: fontSize,
+              font: signatureFont,
               color: rgb(0, 0, 0),
             });
           } else if (
@@ -90,12 +153,12 @@ export const savePDFWithAnnotations = async (
                 image = await pdfDoc.embedJpg(imageBytes);
               }
 
-              const imgDims = image.scale(0.3 / scale);
+              // Use the annotation's actual width and height
               page.drawImage(image, {
-                x,
-                y: y - imgDims.height,
-                width: imgDims.width,
-                height: imgDims.height,
+                x: adjustedX,
+                y: adjustedY - sigHeight,
+                width: sigWidth,
+                height: sigHeight,
               });
             } catch (err) {
               console.error("Error embedding signature image:", err);
@@ -104,24 +167,59 @@ export const savePDFWithAnnotations = async (
         }
 
         if (type === "stamp") {
+          // Calculate stamp dimensions
+          const textLength = annotation.text.length;
+          const stampWidth = Math.max(100, textLength * 10);
+          const stampHeight = 30;
+          const fontSize = annotation.fontSize || 14;
+
+          // Ensure stamp stays within page bounds
+          const adjustedX = Math.min(x, width - stampWidth);
+          const adjustedY = Math.max(stampHeight, y);
+
+          // Get shape styles
+          const shape = annotation.shape || "rounded";
+
           // Draw stamp background
           const bgColor = hexToRgb(annotation.bgColor);
-          page.drawRectangle({
-            x,
-            y: y - 25,
-            width: 100,
-            height: 25,
-            color: rgb(bgColor.r / 255, bgColor.g / 255, bgColor.b / 255),
-            borderColor: rgb(0, 0, 0),
-            borderWidth: 2,
-          });
 
-          // Draw stamp text
+          if (shape === "circle") {
+            // For circle, draw ellipse
+            page.drawEllipse({
+              x: adjustedX + stampWidth / 2,
+              y: adjustedY - stampHeight / 2,
+              xScale: stampWidth / 2,
+              yScale: stampHeight / 2,
+              color: rgb(bgColor.r / 255, bgColor.g / 255, bgColor.b / 255),
+              borderColor: rgb(0, 0, 0),
+              borderWidth: 2,
+            });
+          } else {
+            // For rounded or square
+            page.drawRectangle({
+              x: adjustedX,
+              y: adjustedY - stampHeight,
+              width: stampWidth,
+              height: stampHeight,
+              color: rgb(bgColor.r / 255, bgColor.g / 255, bgColor.b / 255),
+              borderColor: rgb(0, 0, 0),
+              borderWidth: 2,
+            });
+          }
+
+          // Draw stamp text (centered)
           const textColor = hexToRgb(annotation.textColor);
+          const textWidth = helveticaBold.widthOfTextAtSize(
+            annotation.text,
+            fontSize
+          );
+          const textX = adjustedX + (stampWidth - textWidth) / 2;
+          const textY = adjustedY - stampHeight / 2 - fontSize / 3;
+
           page.drawText(annotation.text, {
-            x: x + 10,
-            y: y - 17,
-            size: 12 / scale,
+            x: textX,
+            y: textY,
+            size: fontSize,
             font: helveticaBold,
             color: rgb(textColor.r / 255, textColor.g / 255, textColor.b / 255),
           });
