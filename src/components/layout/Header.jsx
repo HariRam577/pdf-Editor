@@ -32,25 +32,6 @@ const Header = ({ user }) => {
             </div>
           </div>
 
-          {/* Center: Breadcrumbs */}
-          <div className="hidden md:flex items-center space-x-2 text-sm text-gray-500 font-medium">
-            <span>Documents</span>
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9 5l7 7-7 7"
-              />
-            </svg>
-            <span className="text-gray-900">Untitled Document</span>
-          </div>
-
           {/* Right: Actions */}
           <button
             onClick={logout}
